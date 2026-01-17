@@ -1,0 +1,8 @@
+tasks:
+  - id: task-1
+    file: tasks/task-1-auth.md
+    description: Add user authentication
+
+  - id: task-2
+    file: tasks/task-2-docs.md
+    description: Create API documentation
