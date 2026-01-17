@@ -3,7 +3,8 @@ import { WorkerManager } from '../core/WorkerManager';
 export function cleanupCommand(
   repoRoot: string,
   repoName: string,
-  force: boolean = false
+  force: boolean = false,
+  deleteBranches: boolean = true
 ): void {
   if (!force) {
     console.error('Error: --force flag required for cleanup');
@@ -14,7 +15,7 @@ export function cleanupCommand(
   const workerManager = new WorkerManager(repoRoot, repoName);
 
   try {
-    workerManager.cleanup(force);
+    workerManager.cleanup(deleteBranches, force);
     console.log('Cleanup complete');
   } catch (error) {
     console.error(`Failed to cleanup: ${error}`);

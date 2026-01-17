@@ -2,6 +2,11 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+export interface WorktreeInfo {
+  path: string;
+  branch: string;
+}
+
 export class WorktreeManager {
   private worktreeBaseDir: string;
 
@@ -12,19 +17,29 @@ export class WorktreeManager {
     }
   }
 
-  createWorktree(taskId: string, branch?: string): string {
+  createWorktree(taskId: string): WorktreeInfo {
     const worktreePath = path.join(this.worktreeBaseDir, taskId);
+    const branchName = `codex/${taskId}`;
 
     if (fs.existsSync(worktreePath)) {
       throw new Error(`Worktree already exists: ${worktreePath}`);
     }
 
-    // Get current branch or commit
-    const currentRef = branch || this.getCurrentBranch();
+    // Check if branch already exists and delete it if so
+    if (this.branchExists(branchName)) {
+      try {
+        execSync(`git branch -D ${branchName}`, {
+          cwd: this.repoRoot,
+          stdio: 'pipe',
+        });
+      } catch (error) {
+        // Ignore errors if branch doesn't exist
+      }
+    }
 
     try {
-      // Create worktree from current branch/commit
-      execSync(`git worktree add "${worktreePath}" ${currentRef}`, {
+      // Create worktree with a new branch from current HEAD
+      execSync(`git worktree add -b ${branchName} "${worktreePath}"`, {
         cwd: this.repoRoot,
         stdio: 'pipe',
       });
@@ -32,14 +47,22 @@ export class WorktreeManager {
       throw new Error(`Failed to create worktree: ${error}`);
     }
 
-    return worktreePath;
+    return {
+      path: worktreePath,
+      branch: branchName,
+    };
   }
 
-  removeWorktree(taskId: string, force: boolean = false): void {
+  removeWorktree(taskId: string, deleteBranch: boolean = false, force: boolean = false): void {
     const worktreePath = path.join(this.worktreeBaseDir, taskId);
+    const branchName = `codex/${taskId}`;
 
     if (!fs.existsSync(worktreePath)) {
-      return; // Already removed or never existed
+      // Worktree doesn't exist, but maybe the branch does
+      if (deleteBranch && this.branchExists(branchName)) {
+        this.deleteBranch(branchName, force);
+      }
+      return;
     }
 
     // Validate path containment
@@ -56,6 +79,11 @@ export class WorktreeManager {
       });
     } catch (error) {
       throw new Error(`Failed to remove worktree: ${error}`);
+    }
+
+    // Delete the branch if requested
+    if (deleteBranch && this.branchExists(branchName)) {
+      this.deleteBranch(branchName, force);
     }
   }
 
@@ -101,16 +129,27 @@ export class WorktreeManager {
     }
   }
 
-  private getCurrentBranch(): string {
+  private branchExists(branchName: string): boolean {
     try {
-      const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+      execSync(`git rev-parse --verify ${branchName}`, {
         cwd: this.repoRoot,
-        encoding: 'utf-8',
-      }).trim();
-      return branch;
+        stdio: 'pipe',
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private deleteBranch(branchName: string, force: boolean = false): void {
+    try {
+      const forceFlag = force ? '-D' : '-d';
+      execSync(`git branch ${forceFlag} ${branchName}`, {
+        cwd: this.repoRoot,
+        stdio: 'pipe',
+      });
     } catch (error) {
-      // Fallback to HEAD if we can't get the branch name
-      return 'HEAD';
+      throw new Error(`Failed to delete branch ${branchName}: ${error}`);
     }
   }
 
@@ -143,7 +182,23 @@ export class WorktreeManager {
     }
   }
 
-  removeAllWorktrees(force: boolean = false): void {
+  listCodexBranches(): string[] {
+    try {
+      const output = execSync('git branch --list "codex/*"', {
+        cwd: this.repoRoot,
+        encoding: 'utf-8',
+      });
+
+      return output
+        .split('\n')
+        .map(line => line.trim().replace(/^\*\s*/, ''))
+        .filter(line => line.startsWith('codex/'));
+    } catch (error) {
+      return [];
+    }
+  }
+
+  removeAllWorktrees(deleteBranches: boolean = false, force: boolean = false): void {
     const worktrees = this.listWorktrees();
     for (const worktreePath of worktrees) {
       try {
@@ -154,6 +209,18 @@ export class WorktreeManager {
         });
       } catch (error) {
         console.error(`Failed to remove worktree ${worktreePath}: ${error}`);
+      }
+    }
+
+    // Delete all codex/* branches if requested
+    if (deleteBranches) {
+      const branches = this.listCodexBranches();
+      for (const branch of branches) {
+        try {
+          this.deleteBranch(branch, force);
+        } catch (error) {
+          console.error(`Failed to delete branch ${branch}: ${error}`);
+        }
       }
     }
   }

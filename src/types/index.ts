@@ -14,6 +14,7 @@ export interface WorkerState {
   taskFile: string;
   tmuxSession: string;
   worktreePath: string;
+  branch: string;
   status: 'starting' | 'running' | 'stopped' | 'failed';
   startedAt: string;
   stoppedAt?: string;

@@ -165,6 +165,52 @@ Each task file contains markdown-formatted instructions for the Codex worker.
 - Commands detect git repo root at startup
 - Warns (not blocks) if there are uncommitted changes
 
+### Branch management
+- Each worker gets a unique branch: `codex/<task-id>`
+- Branches are created from current HEAD
+- Cleanup deletes branches by default (use `--keep-branches` to preserve)
+
+## Smoke Test
+
+Quick end-to-end test to verify the tool works:
+
+```bash
+# 1. Initialize example tasks
+codex-agent init
+
+# 2. Start workers (spawns tmux sessions with git worktrees)
+codex-agent start --tasks tasks.yaml
+
+# 3. Check worker status (should show 2 workers running)
+codex-agent status
+
+# 4. View logs from a specific worker
+codex-agent logs task-1
+
+# 5. Check diff statistics
+codex-agent diff task-1 --stat
+
+# 6. View full diff
+codex-agent diff task-1
+
+# 7. Send additional instruction to a worker (optional)
+codex-agent send task-1 "Add error handling"
+
+# 8. Stop a specific worker (optional)
+codex-agent stop task-1
+
+# 9. Cleanup everything (removes tmux sessions, worktrees, and branches)
+codex-agent cleanup --force
+```
+
+Expected behavior:
+- `init` creates `tasks.yaml` and `tasks/` directory with example files
+- `start` creates isolated worktrees in `.codex-agent/worktrees/<task-id>/` on branches `codex/<task-id>`
+- `status` shows worker state with branch names
+- `logs` displays recent tmux output
+- `diff` shows changes made by the worker
+- `cleanup` removes all worktrees, tmux sessions, and codex/* branches
+
 ## Development
 
 ```bash

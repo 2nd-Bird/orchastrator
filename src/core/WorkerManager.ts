@@ -39,22 +39,23 @@ export class WorkerManager {
       try {
         console.log(`Starting worker for task: ${task.id}`);
 
-        // Create worktree
-        const worktreePath = this.worktree.createWorktree(task.id);
+        // Create worktree with unique branch
+        const worktreeInfo = this.worktree.createWorktree(task.id);
 
         // Read task file content
         const taskContent = this.taskParser.readTaskFile(task.file);
 
         // Create tmux session and start codex
         const command = `codex exec "${taskContent.replace(/"/g, '\\"')}"`;
-        this.tmux.createSession(task.id, worktreePath, command);
+        this.tmux.createSession(task.id, worktreeInfo.path, command);
 
         const workerState: WorkerState = {
           id: task.id,
           taskId: task.id,
           taskFile: task.file,
           tmuxSession: `codex-${this.repoName}-${task.id}`,
-          worktreePath,
+          worktreePath: worktreeInfo.path,
+          branch: worktreeInfo.branch,
           status: 'running',
           startedAt: new Date().toISOString(),
         };
@@ -71,6 +72,7 @@ export class WorkerManager {
           taskFile: task.file,
           tmuxSession: `codex-${this.repoName}-${task.id}`,
           worktreePath: '',
+          branch: `codex/${task.id}`,
           status: 'failed',
           startedAt: new Date().toISOString(),
           stoppedAt: new Date().toISOString(),
@@ -186,7 +188,7 @@ export class WorkerManager {
     }
   }
 
-  cleanup(force: boolean = false): void {
+  cleanup(deleteBranches: boolean = true, force: boolean = false): void {
     const state = this.state.load();
     if (!state) {
       console.log('No active orchestrator state found');
@@ -196,8 +198,8 @@ export class WorkerManager {
     // Kill all tmux sessions
     this.tmux.killAllSessions();
 
-    // Remove all worktrees
-    this.worktree.removeAllWorktrees(force);
+    // Remove all worktrees and optionally delete branches
+    this.worktree.removeAllWorktrees(deleteBranches, force);
 
     // Clear state
     this.state.clear();

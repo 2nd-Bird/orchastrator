@@ -20,6 +20,7 @@ export function statusCommand(
       console.log(`ID:           ${worker.id}`);
       console.log(`Task:         ${worker.taskFile}`);
       console.log(`Status:       ${worker.status}`);
+      console.log(`Branch:       ${worker.branch}`);
       console.log(`Tmux Session: ${worker.tmuxSession}`);
       console.log(`Worktree:     ${worker.worktreePath}`);
       console.log(`Started:      ${worker.startedAt}`);

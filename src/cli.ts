@@ -95,9 +95,11 @@ program
   .command('cleanup')
   .description('Remove tmux sessions and worktrees')
   .requiredOption('-f, --force', 'Force cleanup (required)')
+  .option('--keep-branches', 'Keep codex/* branches (default: delete them)')
   .action((options) => {
     const { repoRoot, repoName } = validateRepo();
-    cleanupCommand(repoRoot, repoName, options.force);
+    const deleteBranches = !options.keepBranches;
+    cleanupCommand(repoRoot, repoName, options.force, deleteBranches);
   });
 
 program.parse();
