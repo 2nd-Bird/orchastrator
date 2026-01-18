@@ -49,19 +49,16 @@ export class WorkerManager {
         const taskFilePath = path.join(worktreeInfo.path, '.task-prompt.md');
         fs.writeFileSync(taskFilePath, taskContent, 'utf-8');
 
-        // Add .task-prompt.md to git exclude to prevent worker confusion about untracked files
-        const excludePath = path.join(worktreeInfo.path, '.git', 'info', 'exclude');
-        const excludeDir = path.dirname(excludePath);
-        if (!fs.existsSync(excludeDir)) {
-          fs.mkdirSync(excludeDir, { recursive: true });
-        }
-        if (fs.existsSync(excludePath)) {
-          const existingExclude = fs.readFileSync(excludePath, 'utf-8');
-          if (!existingExclude.includes('.task-prompt.md')) {
-            fs.appendFileSync(excludePath, '\n.task-prompt.md\n');
-          }
+        // Create .gitignore in worktree to exclude .task-prompt.md
+        // (worktrees have .git as a file, not a directory, so we can't use .git/info/exclude)
+        const gitignorePath = path.join(worktreeInfo.path, '.gitignore');
+        if (!fs.existsSync(gitignorePath)) {
+          fs.writeFileSync(gitignorePath, '.task-prompt.md\n');
         } else {
-          fs.writeFileSync(excludePath, '.task-prompt.md\n');
+          const existingGitignore = fs.readFileSync(gitignorePath, 'utf-8');
+          if (!existingGitignore.includes('.task-prompt.md')) {
+            fs.appendFileSync(gitignorePath, '\n.task-prompt.md\n');
+          }
         }
 
         // Create tmux session with just a shell first
