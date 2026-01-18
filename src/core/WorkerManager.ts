@@ -49,16 +49,23 @@ export class WorkerManager {
         const taskFilePath = path.join(worktreeInfo.path, '.task-prompt.md');
         fs.writeFileSync(taskFilePath, taskContent, 'utf-8');
 
-        // Create .gitignore in worktree to exclude .task-prompt.md
-        // (worktrees have .git as a file, not a directory, so we can't use .git/info/exclude)
-        const gitignorePath = path.join(worktreeInfo.path, '.gitignore');
-        if (!fs.existsSync(gitignorePath)) {
-          fs.writeFileSync(gitignorePath, '.task-prompt.md\n');
-        } else {
-          const existingGitignore = fs.readFileSync(gitignorePath, 'utf-8');
-          if (!existingGitignore.includes('.task-prompt.md')) {
-            fs.appendFileSync(gitignorePath, '\n.task-prompt.md\n');
+        // Add .task-prompt.md to worktree's local exclude (doesn't pollute diffs)
+        // Worktree .git is a file pointing to .git/worktrees/<name>, so we add to .git/worktrees/<name>/info/exclude
+        const worktreeGitDir = path.join(this.repoRoot, '.git', 'worktrees', task.id);
+        const excludeDir = path.join(worktreeGitDir, 'info');
+        const excludePath = path.join(excludeDir, 'exclude');
+
+        if (!fs.existsSync(excludeDir)) {
+          fs.mkdirSync(excludeDir, { recursive: true });
+        }
+
+        if (fs.existsSync(excludePath)) {
+          const existingExclude = fs.readFileSync(excludePath, 'utf-8');
+          if (!existingExclude.includes('.task-prompt.md')) {
+            fs.appendFileSync(excludePath, '\n.task-prompt.md\n');
           }
+        } else {
+          fs.writeFileSync(excludePath, '.task-prompt.md\n');
         }
 
         // Create tmux session with just a shell first
