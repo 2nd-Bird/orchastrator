@@ -52,10 +52,13 @@ export class WorkerManager {
         // Create tmux session with just a shell first
         this.tmux.createSession(task.id, worktreeInfo.path, '');
 
-        // Now send the codex command, referencing the task file
-        // Escape the $ to prevent evaluation before reaching tmux session
-        const command = 'codex exec "\\$(cat .task-prompt.md)"';
+        // Use stdin redirection for safe task execution (SPEC R1: file-based invocation)
+        // This avoids all shell escaping issues with quotes, backticks, and special characters
+        const command = 'codex exec < .task-prompt.md';
         this.tmux.sendKeys(task.id, command);
+
+        // Save the executed command for debugging (SPEC R6: persist command)
+        this.saveCommand(runId, task.id, command);
 
         const workerState: WorkerState = {
           id: task.id,
@@ -257,5 +260,11 @@ export class WorkerManager {
     const workerDir = this.getWorkerDir(runId, workerId);
     const diffstatPath = path.join(workerDir, 'diffstat.txt');
     fs.writeFileSync(diffstatPath, diffstat, 'utf-8');
+  }
+
+  private saveCommand(runId: string, workerId: string, command: string): void {
+    const workerDir = this.getWorkerDir(runId, workerId);
+    const commandPath = path.join(workerDir, 'command.txt');
+    fs.writeFileSync(commandPath, command, 'utf-8');
   }
 }

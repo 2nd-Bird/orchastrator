@@ -53,7 +53,7 @@ program
   .command('logs')
   .description('Capture recent tmux output from a worker')
   .argument('<worker-id>', 'Worker ID')
-  .option('--lines <number>', 'Number of lines to capture', parseInt)
+  .option('-n, --lines <number>', 'Number of lines to capture', parseInt)
   .action((workerId, options) => {
     const { repoRoot, repoName } = validateRepo();
     logsCommand(repoRoot, repoName, workerId, options.lines);
