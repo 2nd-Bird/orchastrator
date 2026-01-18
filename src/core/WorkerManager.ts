@@ -54,7 +54,8 @@ export class WorkerManager {
 
         // Use stdin redirection for safe task execution (SPEC R1: file-based invocation)
         // This avoids all shell escaping issues with quotes, backticks, and special characters
-        const command = 'codex exec < .task-prompt.md';
+        // Use workspace-write sandbox mode to allow file modifications (SPEC R5: not read-only)
+        const command = 'codex exec --sandbox workspace-write < .task-prompt.md';
         this.tmux.sendKeys(task.id, command);
 
         // Save the executed command for debugging (SPEC R6: persist command)
