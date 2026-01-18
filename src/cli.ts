@@ -42,9 +42,10 @@ program
   .command('status')
   .description('Show worker status (all or specific)')
   .argument('[worker-id]', 'Worker ID (optional)')
-  .action((workerId) => {
+  .option('--json', 'Output JSON')
+  .action((workerId, options) => {
     const { repoRoot, repoName } = validateRepo();
-    statusCommand(repoRoot, repoName, workerId);
+    statusCommand(repoRoot, repoName, workerId, options.json);
   });
 
 // Logs command
@@ -52,9 +53,10 @@ program
   .command('logs')
   .description('Capture recent tmux output from a worker')
   .argument('<worker-id>', 'Worker ID')
-  .action((workerId) => {
+  .option('--lines <number>', 'Number of lines to capture', parseInt)
+  .action((workerId, options) => {
     const { repoRoot, repoName } = validateRepo();
-    logsCommand(repoRoot, repoName, workerId);
+    logsCommand(repoRoot, repoName, workerId, options.lines);
   });
 
 // Diff command

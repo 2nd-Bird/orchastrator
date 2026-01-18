@@ -3,12 +3,25 @@ import { WorkerManager } from '../core/WorkerManager';
 export function statusCommand(
   repoRoot: string,
   repoName: string,
-  workerId?: string
+  workerId?: string,
+  jsonOutput = false
 ): void {
   const workerManager = new WorkerManager(repoRoot, repoName);
 
   try {
     const workers = workerManager.getStatus(workerId);
+
+    if (jsonOutput) {
+      const payload = workers.map((worker) => ({
+        id: worker.id,
+        status: worker.status,
+        tmuxSession: worker.tmuxSession,
+        worktreePath: worker.worktreePath,
+        taskFile: worker.taskFile,
+      }));
+      console.log(JSON.stringify(payload));
+      return;
+    }
 
     if (workers.length === 0) {
       console.log('No workers found');

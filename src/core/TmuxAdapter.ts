@@ -43,15 +43,25 @@ export class TmuxAdapter {
     execSync(`tmux send-keys -t ${sessionName} "${keys.replace(/"/g, '\\"')}" C-m`);
   }
 
-  capturePane(taskId: string, lines: number = 1000): string {
+  capturePane(taskId: string, lines?: number): string {
     const sessionName = this.getSessionName(taskId);
 
     if (!this.sessionExists(taskId)) {
       throw new Error(`Tmux session does not exist: ${sessionName}`);
     }
 
+    if (lines !== undefined) {
+      if (!Number.isInteger(lines) || lines <= 0) {
+        throw new Error('Lines must be a positive integer');
+      }
+    }
+
     try {
-      const output = execSync(`tmux capture-pane -t ${sessionName} -p -S -${lines}`, {
+      const command =
+        lines !== undefined
+          ? `tmux capture-pane -t ${sessionName} -p -S -${lines}`
+          : `tmux capture-pane -t ${sessionName} -p`;
+      const output = execSync(command, {
         encoding: 'utf-8',
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer
       });

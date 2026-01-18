@@ -45,9 +45,17 @@ export class WorkerManager {
         // Read task file content
         const taskContent = this.taskParser.readTaskFile(task.file);
 
-        // Create tmux session and start codex
-        const command = `codex exec "${taskContent.replace(/"/g, '\\"')}"`;
-        this.tmux.createSession(task.id, worktreeInfo.path, command);
+        // Write task content to a temporary file in the worktree to avoid shell escaping issues
+        const taskFilePath = path.join(worktreeInfo.path, '.task-prompt.md');
+        fs.writeFileSync(taskFilePath, taskContent, 'utf-8');
+
+        // Create tmux session with just a shell first
+        this.tmux.createSession(task.id, worktreeInfo.path, '');
+
+        // Now send the codex command, referencing the task file
+        // Escape the $ to prevent evaluation before reaching tmux session
+        const command = 'codex exec "\\$(cat .task-prompt.md)"';
+        this.tmux.sendKeys(task.id, command);
 
         const workerState: WorkerState = {
           id: task.id,
@@ -99,7 +107,7 @@ export class WorkerManager {
     return state.workers;
   }
 
-  captureLogs(workerId: string): string {
+  captureLogs(workerId: string, lines?: number): string {
     const state = this.state.load();
     if (!state) {
       throw new Error('No active orchestrator state found');
@@ -110,7 +118,7 @@ export class WorkerManager {
       throw new Error(`Worker not found: ${workerId}`);
     }
 
-    const logs = this.tmux.capturePane(workerId);
+    const logs = this.tmux.capturePane(workerId, lines);
     this.saveLogs(state.runId, workerId, logs);
     return logs;
   }

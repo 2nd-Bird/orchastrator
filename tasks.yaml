@@ -1,8 +1,8 @@
 tasks:
-  - id: task-1
-    file: tasks/task-1-auth.md
-    description: Add user authentication
+  - id: improve-status-json
+    file: tasks/improve-status-json.md
+    description: Add --json output to status command
 
-  - id: task-2
-    file: tasks/task-2-docs.md
-    description: Create API documentation
+  - id: improve-logs-lines
+    file: tasks/improve-logs-lines.md
+    description: Add --lines N support to logs command
