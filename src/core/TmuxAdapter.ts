@@ -43,6 +43,19 @@ export class TmuxAdapter {
     execSync(`tmux send-keys -t ${sessionName} "${keys.replace(/"/g, '\\"')}" C-m`);
   }
 
+  sendKeysLiteral(taskId: string, keys: string): void {
+    const sessionName = this.getSessionName(taskId);
+
+    if (!this.sessionExists(taskId)) {
+      throw new Error(`Tmux session does not exist: ${sessionName}`);
+    }
+
+    // Send keys literally without special character processing (SPEC R8)
+    // Using -l flag to avoid shell parsing, followed by Enter
+    execSync(`tmux send-keys -t ${sessionName} -l "${keys.replace(/"/g, '\\"')}"`);
+    execSync(`tmux send-keys -t ${sessionName} C-m`);
+  }
+
   capturePane(taskId: string, lines?: number): string {
     const sessionName = this.getSessionName(taskId);
 

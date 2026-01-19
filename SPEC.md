@@ -72,3 +72,30 @@ Acceptance:
 ### Non-Goals
 - No need to simplify user task markdown files.
 - No requirement for users to avoid code fences or special characters in task files.
+
+## Addendum: Userless Orchestration Requirements
+
+### R7. No temp prompt files in worktree
+- Task invocation MUST NOT write any temporary prompt file into the worker worktree root
+- Task content should be redirected from the run artifacts directory or original task file
+- Eliminates untracked-file pollution and .gitignore management complexity
+
+Acceptance:
+- Worker worktrees contain no `.task-prompt.md` or similar files
+- No .git/info/exclude manipulation needed
+
+### R8. Send command robustness ("send guard")
+- `send` MUST detect whether Codex is currently running before sending instructions
+- If Codex is not active (bash prompt detected), MUST restart Codex session first
+- Instruction text MUST be sent literally without shell parsing
+
+Acceptance:
+- `send` with quotes/parens reaches Codex, not bash
+- Send auto-restarts Codex if needed
+
+### R9. Diff includes untracked files
+- `diff --stat` MUST include untracked files in addition to tracked modifications
+- Untracked files listed in separate "Untracked files:" section
+
+Acceptance:
+- `diff --stat` shows new files workers create
