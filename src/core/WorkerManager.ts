@@ -45,36 +45,21 @@ export class WorkerManager {
         // Read task file content
         const taskContent = this.taskParser.readTaskFile(task.file);
 
-        // Write task content to a temporary file in the worktree to avoid shell escaping issues
-        const taskFilePath = path.join(worktreeInfo.path, '.task-prompt.md');
-        fs.writeFileSync(taskFilePath, taskContent, 'utf-8');
+        // Save task file to run artifacts first (SPEC R7: no temp files in worktree)
+        this.saveTaskFile(runId, task.id, taskContent);
 
-        // Add .task-prompt.md to worktree's local exclude (doesn't pollute diffs)
-        // Worktree .git is a file pointing to .git/worktrees/<name>, so we add to .git/worktrees/<name>/info/exclude
-        const worktreeGitDir = path.join(this.repoRoot, '.git', 'worktrees', task.id);
-        const excludeDir = path.join(worktreeGitDir, 'info');
-        const excludePath = path.join(excludeDir, 'exclude');
-
-        if (!fs.existsSync(excludeDir)) {
-          fs.mkdirSync(excludeDir, { recursive: true });
-        }
-
-        if (fs.existsSync(excludePath)) {
-          const existingExclude = fs.readFileSync(excludePath, 'utf-8');
-          if (!existingExclude.includes('.task-prompt.md')) {
-            fs.appendFileSync(excludePath, '\n.task-prompt.md\n');
-          }
-        } else {
-          fs.writeFileSync(excludePath, '.task-prompt.md\n');
-        }
+        // Get absolute path to task file in artifacts directory
+        const taskFilePath = path.join(this.getWorkerDir(runId, task.id), 'task.md');
 
         // Create tmux session with just a shell first
         this.tmux.createSession(task.id, worktreeInfo.path, '');
 
-        // Use stdin redirection for safe task execution (SPEC R1: file-based invocation)
-        // This avoids all shell escaping issues with quotes, backticks, and special characters
+        // Use stdin redirection from artifact path for safe task execution (SPEC R1 + R7)
+        // This avoids all shell escaping issues and doesn't pollute the worktree
         // Use workspace-write sandbox mode to allow file modifications (SPEC R5: not read-only)
-        const command = 'codex exec --sandbox workspace-write < .task-prompt.md';
+        // Properly escape the path for shell
+        const escapedPath = taskFilePath.replace(/'/g, "'\\''");
+        const command = `codex exec --sandbox workspace-write < '${escapedPath}'`;
         this.tmux.sendKeys(task.id, command);
 
         // Save the executed command for debugging (SPEC R6: persist command)
@@ -92,9 +77,6 @@ export class WorkerManager {
         };
 
         orchestratorState.workers.push(workerState);
-
-        // Copy task file to run directory
-        this.saveTaskFile(runId, task.id, taskContent);
       } catch (error) {
         console.error(`Failed to start worker ${task.id}: ${error}`);
         const workerState: WorkerState = {
@@ -179,7 +161,57 @@ export class WorkerManager {
       throw new Error(`Worker not found: ${workerId}`);
     }
 
-    this.tmux.sendKeys(workerId, instruction);
+    // SPEC R8: Send guard - detect if Codex is running before sending instruction
+    const recentOutput = this.tmux.capturePane(workerId, 20);
+
+    if (!this.isCodexRunning(recentOutput)) {
+      console.log(`Codex not running for worker ${workerId}, restarting...`);
+
+      // Load the original command from artifacts
+      const commandPath = path.join(
+        this.repoRoot,
+        '.codex-agent',
+        'runs',
+        state.runId,
+        'workers',
+        workerId,
+        'command.txt'
+      );
+
+      if (fs.existsSync(commandPath)) {
+        const originalCommand = fs.readFileSync(commandPath, 'utf-8').trim();
+        this.tmux.sendKeys(workerId, originalCommand);
+
+        // Wait briefly for Codex to start
+        const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+        const waitTime = 2000; // 2 seconds
+        console.log(`Waiting ${waitTime}ms for Codex to start...`);
+        require('child_process').execSync(`sleep ${waitTime / 1000}`);
+      } else {
+        console.warn(`Command file not found at ${commandPath}, sending instruction anyway`);
+      }
+    }
+
+    // Use literal mode to avoid shell parsing of special characters (SPEC R8)
+    this.tmux.sendKeysLiteral(workerId, instruction);
+  }
+
+  private isCodexRunning(recentOutput: string): boolean {
+    const lines = recentOutput.trim().split('\n');
+    const lastLine = lines[lines.length - 1] || '';
+
+    // Bash prompt patterns indicate Codex is not running
+    if (lastLine.match(/\$\s*$/) || lastLine.match(/#\s*$/)) {
+      return false;
+    }
+
+    // Codex still active if recent output mentions "Claude" or shows prompt
+    if (recentOutput.includes('Claude') || recentOutput.includes('assistant>')) {
+      return true;
+    }
+
+    // Conservative: assume not running if we can't determine
+    return false;
   }
 
   stopWorker(workerId: string): void {

@@ -119,11 +119,53 @@ export class WorktreeManager {
     }
 
     try {
+      // Get regular diffstat for tracked modifications (SPEC R9)
       const diffstat = execSync('git diff --stat HEAD', {
         cwd: worktreePath,
         encoding: 'utf-8',
       });
-      return diffstat;
+
+      // Get untracked files (SPEC R9: diff includes untracked)
+      const status = execSync('git status --porcelain', {
+        cwd: worktreePath,
+        encoding: 'utf-8',
+      });
+
+      // Parse untracked files from status output
+      const untrackedFiles: string[] = [];
+      const statusLines = status.split('\n');
+      for (const line of statusLines) {
+        if (line.startsWith('??')) {
+          untrackedFiles.push(line);
+        }
+      }
+
+      // Combine diffstat with untracked files
+      let result = diffstat;
+
+      if (untrackedFiles.length > 0) {
+        // Add untracked files section
+        if (result && !result.endsWith('\n')) {
+          result += '\n';
+        }
+        if (result.trim()) {
+          result += '\n';
+        }
+        result += 'Untracked files:\n';
+        for (const file of untrackedFiles) {
+          result += `  ${file}\n`;
+        }
+      }
+
+      // If only untracked files exist (no tracked changes), show them anyway
+      if (!diffstat.trim() && untrackedFiles.length > 0) {
+        result = 'Untracked files:\n';
+        for (const file of untrackedFiles) {
+          result += `  ${file}\n`;
+        }
+      }
+
+      return result;
     } catch (error) {
       throw new Error(`Failed to get diffstat: ${error}`);
     }
