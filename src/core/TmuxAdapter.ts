@@ -1,5 +1,6 @@
 import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
+import { sanitizeOutput } from '../utils/sanitize';
 
 export class TmuxAdapter {
   constructor(private repoName: string) {}
@@ -56,7 +57,7 @@ export class TmuxAdapter {
     execSync(`tmux send-keys -t ${sessionName} C-m`);
   }
 
-  capturePane(taskId: string, lines?: number): string {
+  capturePane(taskId: string, lines?: number, raw = false): string {
     const sessionName = this.getSessionName(taskId);
 
     if (!this.sessionExists(taskId)) {
@@ -78,7 +79,10 @@ export class TmuxAdapter {
         encoding: 'utf-8',
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer
       });
-      return output;
+
+      // Sanitize output by default to make it safe for Claude Code TUI
+      // Use --raw flag to bypass sanitization for debugging
+      return raw ? output : sanitizeOutput(output);
     } catch (error) {
       throw new Error(`Failed to capture pane: ${error}`);
     }
