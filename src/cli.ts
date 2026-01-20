@@ -54,9 +54,10 @@ program
   .description('Capture recent tmux output from a worker')
   .argument('<worker-id>', 'Worker ID')
   .option('-n, --lines <number>', 'Number of lines to capture', parseInt)
+  .option('--raw', 'Show raw output without sanitization (for debugging)')
   .action((workerId, options) => {
     const { repoRoot, repoName } = validateRepo();
-    logsCommand(repoRoot, repoName, workerId, options.lines);
+    logsCommand(repoRoot, repoName, workerId, options.lines, options.raw);
   });
 
 // Diff command

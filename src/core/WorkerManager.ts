@@ -112,7 +112,7 @@ export class WorkerManager {
     return state.workers;
   }
 
-  captureLogs(workerId: string, lines?: number): string {
+  captureLogs(workerId: string, lines?: number, raw = false): string {
     const state = this.state.load();
     if (!state) {
       throw new Error('No active orchestrator state found');
@@ -123,7 +123,7 @@ export class WorkerManager {
       throw new Error(`Worker not found: ${workerId}`);
     }
 
-    const logs = this.tmux.capturePane(workerId, lines);
+    const logs = this.tmux.capturePane(workerId, lines, raw);
     this.saveLogs(state.runId, workerId, logs);
     return logs;
   }
